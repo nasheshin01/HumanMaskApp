@@ -1,9 +1,8 @@
-# import the opencv library
 import cv2
 
 import numpy as np
 
-from seg_models import SegmentationModel, UNet
+from seg_models import UNet
   
 model = UNet()
 model.build(input_shape=(1, 128, 128, 3))
@@ -19,12 +18,17 @@ while(True):
     # Capture the video frame
     # by frame
     ret, frame = vid.read()
-    image = cv2.resize(frame, (128, 128))
+    image = cv2.resize(frame, (160, 160))
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     image_norm = image / 255.0
 
     mask = model.predict(np.array([image_norm]))[0]
     mask = cv2.resize(mask, (frame.shape[1], frame.shape[0]))
+
+    blur = cv2.blur(frame,(15,15),0)
+    out = frame.copy()
+    out[mask<0.5] = blur[mask<0.5]
+
     mask_image = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
   
     # Display the resulting frame

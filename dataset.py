@@ -33,14 +33,16 @@ def get_paths_dataframe(data_dirs, train_size):
 
 
 def read_image_and_mask(image_path, mask_path):
+    input_size = (160, 160)
+
     image = tf.io.read_file(image_path)
     mask = tf.io.read_file(mask_path)
 
     image = tf.image.decode_png(image, channels=3)
     mask = tf.image.decode_png(mask, channels=1)
 
-    image = tf.image.resize(image, (256, 256)) / 255
-    mask = tf.image.resize(mask, (256, 256)) / 255
+    image = tf.image.resize(image, input_size) / 255
+    mask = tf.image.resize(mask, input_size) / 255
 
     return image, mask
 
