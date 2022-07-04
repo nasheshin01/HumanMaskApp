@@ -1,17 +1,22 @@
 from streamers.input import CameraVideoInputStreamer
 from streamers.output import WindowOutputStreamer
-from transformers import BlurTransformer
+from transformers import BlurBackgroundTransformer, ImageBackgroundTransformer
 from maskers import HumanMaskFinder
 
 class Processer:
 
-    def __init__(self, input_type: str, output_type: str, weights_path: str, input_path: str=None, output_path: str=None) -> None:
+    def __init__(self, input_type: str, output_type: str, weights_path: str, background_type:str,
+                 input_path: str=None, output_path: str=None, background_path: str=None) -> None:
         self.input_type = input_type
         if input_type == "camera":
             self.input_streamer = CameraVideoInputStreamer()
         
         self.mask_finder = HumanMaskFinder(weights_path)
-        self.image_transformer = BlurTransformer()
+
+        if background_type == "blur":
+            self.image_transformer = BlurBackgroundTransformer()
+        elif background_type == "image":
+            self.image_transformer = ImageBackgroundTransformer(background_path)
 
         if output_type == "window":
             self.output_streamer = WindowOutputStreamer("BlurredBackground")
