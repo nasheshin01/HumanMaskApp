@@ -26,13 +26,33 @@ def get_paths_dataframe(data_dirs, train_size):
     df = pd.DataFrame(result_paths)
     df.columns = ['image_path', 'mask_path']
 
-    df_train = df.sample(frac=0.95, random_state=42)
+    df_train = df.sample(frac=train_size, random_state=42)
     df_val = pd.concat([df_train, df]).drop_duplicates(keep=False)
 
     return df_train, df_val
 
 
-def read_image_and_mask(image_path, mask_path):
+def read_image_and_mask_train(image_path, mask_path):
+    input_size = (160, 160)
+
+    image = tf.io.read_file(image_path)
+    mask = tf.io.read_file(mask_path)
+
+    image = tf.image.decode_png(image, channels=3)
+    mask = tf.image.decode_png(mask, channels=1)
+
+    image = tf.image.resize(image, input_size) / 255
+    mask = tf.image.resize(mask, input_size) / 255
+
+    image_and_mask = tf.concat([image, mask], axis=2)
+    image_and_mask_cropped = tf.image.random_crop(image_and_mask, (160, 160, 4))
+
+    image = image_and_mask_cropped[..., :3]
+    mask = image_and_mask_cropped[..., 3:4]
+
+    return image, mask
+
+def read_image_and_mask_val(image_path, mask_path):
     input_size = (160, 160)
 
     image = tf.io.read_file(image_path)
@@ -47,12 +67,16 @@ def read_image_and_mask(image_path, mask_path):
     return image, mask
 
 
-def get_dataset(df):
+def get_dataset(df, is_training):
     images_paths = df['image_path'].values
     masks_paths = df['mask_path'].values
 
     ds = tf.data.Dataset.from_tensor_slices((images_paths, masks_paths))
-    ds = ds.map(read_image_and_mask)
+
+    if is_training:
+        ds = ds.map(read_image_and_mask_train)
+    else:
+        ds = ds.map(read_image_and_mask_val)
 
     return ds.batch(1)
 
