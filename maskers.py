@@ -2,7 +2,7 @@ import cv2
 
 import numpy as np
 
-from seg_models import ASPPNet
+from training.seg_models import ASPPNet
 
 class HumanMaskFinder:
 
