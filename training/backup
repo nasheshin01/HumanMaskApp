@@ -1,0 +1,114 @@
+class ASPPBlock(keras.Model):
+    def __init__(self, filters):
+        super().__init__()
+
+        self.stdConv = keras.layers.Conv2D(filters, (3, 3), padding='same', activation='relu')
+        self.smallDilationConv = keras.layers.Conv2D(filters, (3, 3), dilation_rate=4, padding='same', activation='relu')
+        self.mediumDilationConv = keras.layers.Conv2D(filters, (3, 3), dilation_rate=8, padding='same', activation='relu')
+        self.largeDilationConv = keras.layers.Conv2D(filters, (3, 3), dilation_rate=16, padding='same', activation='relu')
+        self.mixConv = keras.layers.Conv2D(filters, (1, 1), padding='same', activation='relu')
+
+        self.stdBatchNorm = keras.layers.BatchNormalization()
+        self.smallDilationBatchNorm = keras.layers.BatchNormalization()
+        self.mediumDilationBatchNorm = keras.layers.BatchNormalization()
+        self.largeDilationBatchNorm = keras.layers.BatchNormalization()
+        self.mixBatchNorm = keras.layers.BatchNormalization()
+
+    def call(self, x):
+        stdConvOut = self.stdBatchNorm(self.stdConv(x))
+        smallDilationConvOut = self.smallDilationBatchNorm(self.smallDilationConv(x))
+        mediumDilationConvOut = self.mediumDilationBatchNorm(self.mediumDilationConv(x))
+        largelDilationConvOut = self.largeDilationBatchNorm(self.largeDilationConv(x))
+        convConcat = tf.concat([stdConvOut, smallDilationConvOut, mediumDilationConvOut, largelDilationConvOut], axis=3)
+        mixConvOut = self.mixBatchNorm(self.mixConv(convConcat))
+
+        return mixConvOut
+
+
+class ASPPNet(keras.Model):
+    def __init__(self):
+        super().__init__()
+        self.encoderConv11 = keras.layers.Conv2D(64, (3, 3), padding='same', activation='relu')
+        self.encoderConv12 = keras.layers.Conv2D(64, (3, 3), padding='same', activation='relu')
+        self.encoderConv21 = keras.layers.Conv2D(128, (3, 3), padding='same', activation='relu')
+        self.encoderConv22 = keras.layers.Conv2D(128, (3, 3), padding='same', activation='relu')
+        self.encoderConv31 = keras.layers.Conv2D(256, (3, 3), padding='same', activation='relu')
+        self.encoderConv32 = keras.layers.Conv2D(256, (3, 3), padding='same', activation='relu')
+
+        self.encoderBatchNorm11 = keras.layers.BatchNormalization()
+        self.encoderBatchNorm12 = keras.layers.BatchNormalization()
+        self.encoderBatchNorm21 = keras.layers.BatchNormalization()
+        self.encoderBatchNorm22 = keras.layers.BatchNormalization()
+        self.encoderBatchNorm31 = keras.layers.BatchNormalization()
+        self.encoderBatchNorm32 = keras.layers.BatchNormalization()
+        
+        self.bottleNeckConv1 = keras.layers.Conv2D(512, (3, 3), padding='same', activation='relu')
+        self.bottleNeckConv2 = keras.layers.Conv2D(512, (3, 3), padding='same', activation='relu')
+
+        self.bottleNeckBatchNorm1 = keras.layers.BatchNormalization()
+        self.bottleNeckBatchNorm2 = keras.layers.BatchNormalization()
+
+        self.decoderConv11 = keras.layers.Conv2D(256, (3, 3), padding='same', activation='relu')
+        self.decoderConv12 = keras.layers.Conv2D(256, (3, 3), padding='same', activation='relu')
+        self.decoderConv21 = keras.layers.Conv2D(128, (3, 3), padding='same', activation='relu')
+        self.decoderConv22 = keras.layers.Conv2D(128, (3, 3), padding='same', activation='relu')
+        self.decoderConv31 = keras.layers.Conv2D(64, (3, 3), padding='same', activation='relu')
+        self.decoderConv32 = keras.layers.Conv2D(64, (3, 3), padding='same', activation='relu')
+
+        self.decoderBatchNorm11 = keras.layers.BatchNormalization()
+        self.decoderBatchNorm12 = keras.layers.BatchNormalization()
+        self.decoderBatchNorm21 = keras.layers.BatchNormalization()
+        self.decoderBatchNorm22 = keras.layers.BatchNormalization()
+        self.decoderBatchNorm31 = keras.layers.BatchNormalization()
+        self.decoderBatchNorm32 = keras.layers.BatchNormalization()
+
+        self.decoderUpconv1 = keras.layers.Conv2DTranspose(256, (3, 3), strides=(2, 2), padding='same', activation='relu')
+        self.decoderUpconv2 = keras.layers.Conv2DTranspose(128, (3, 3), strides=(2, 2), padding='same', activation='relu')
+        self.decoderUpconv3 = keras.layers.Conv2DTranspose(64, (3, 3), strides=(2, 2), padding='same', activation='relu')
+
+        self.decoderBatchNorm1 = keras.layers.BatchNormalization()
+        self.decoderBatchNorm2 = keras.layers.BatchNormalization()
+        self.decoderBatchNorm3 = keras.layers.BatchNormalization()
+
+        self.decoderConvResult = keras.layers.Conv2D(1, (3, 3), padding='same', activation='sigmoid')
+        
+        self.maxPool = keras.layers.MaxPool2D((2, 2))
+        self.asppBlock = ASPPBlock(512) 
+                
+    def call(self, x):
+
+        # Encoder
+        encoderConv11Out = self.encoderBatchNorm11(self.encoderConv11(x))
+        encoderConv12Out = self.encoderBatchNorm12(self.encoderConv12(encoderConv11Out))
+        maxPool1Out =  self.maxPool(encoderConv12Out)
+
+        encoderConv21Out = self.encoderBatchNorm21(self.encoderConv21(maxPool1Out))
+        encoderConv22Out = self.encoderBatchNorm22(self.encoderConv22(encoderConv21Out))
+        maxPool2Out =  self.maxPool(encoderConv22Out)
+
+        encoderConv31Out = self.encoderBatchNorm31(self.encoderConv31(maxPool2Out))
+        encoderConv32Out = self.encoderBatchNorm32(self.encoderConv32(encoderConv31Out))
+        maxPool3Out =  self.maxPool(encoderConv32Out)
+
+        bottleNeck1Out = self.bottleNeckBatchNorm1(self.bottleNeckConv1(maxPool3Out))
+        bottleNeck2Out = self.bottleNeckBatchNorm2(self.bottleNeckConv2(bottleNeck1Out))
+        asppBlockOut = self.asppBlock(bottleNeck2Out)
+
+        upConv1Out = self.decoderUpconv1(asppBlockOut)
+        tensorConcat1 = tf.concat([encoderConv32Out, upConv1Out], axis=3)
+        decoderConv11Out = self.decoderBatchNorm11(self.decoderConv11(tensorConcat1))
+        decoderConv12Out = self.decoderBatchNorm12(self.decoderConv12(decoderConv11Out))
+
+        upConv2Out = self.decoderUpconv2(decoderConv12Out)
+        tensorConcat2 = tf.concat([encoderConv22Out, upConv2Out], axis=3)
+        decoderConv21Out = self.decoderBatchNorm21(self.decoderConv21(tensorConcat2))
+        decoderConv22Out = self.decoderBatchNorm22(self.decoderConv22(decoderConv21Out))
+
+        upConv3Out = self.decoderUpconv3(decoderConv22Out)
+        tensorConcat3 = tf.concat([encoderConv12Out, upConv3Out], axis=3)
+        decoderConv31Out = self.decoderBatchNorm31(self.decoderConv31(tensorConcat3))
+        decoderConv32Out = self.decoderBatchNorm32(self.decoderConv32(decoderConv31Out))
+
+        decoderConvResult = self.decoderConvResult(decoderConv32Out)
+
+        return decoderConvResult
